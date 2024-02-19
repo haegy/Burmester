@@ -1,0 +1,260 @@
+from PySide import QtCore, QtGui
+
+def EL(Gtyp):	
+			import Draft
+			import math
+			import FreeCAD as App
+			import numpy as np
+			#
+			# https://stackoverflow.com/questions/74265725/find-intersection-of-two-vectors-with-numpy
+			def intersect(A, a, B, b):
+					# v = Richtungsvektor c= Ortsvektor
+					v1 = np.array([a[0], a[1], 0]).T
+					c1 = np.array([A[0], A[1], 0]).T
+					v2 = np.array([b[0], b[1], 0]).T
+					c2 = np.array([B[0], B[1], 0]).T
+					# in this case the solved x is [-1.  1.], error is 0, and rank is 2
+					x, err, rank = np.linalg.lstsq(np.array([v1, -v2]).T, c2-c1)[:3]
+					if rank == 2:
+					    # intersection exists
+					    return (v1 * x[0] + c1)
+					else:
+					    print("no intersection")
+			#
+			def angle_btw_vect(Ax, Ay, Bx, By, Cx, Cy, Dx, Dy):
+					A = App.Vector(Ax,Ay,0)
+					B = App.Vector(Bx,By,0)
+					C = App.Vector(Cx,Cy,0)
+					D = App.Vector(Dx,Dy,0)
+					AB = B-A
+					CD = D-C
+					return AB.getAngle(CD)
+			#
+			def vect_from_line(Line):
+					L = App.ActiveDocument.getObject(Line).Shape.Vertexes
+					v0 = App.Vector(L[0].X, L[0].Y, L[0].Z)
+					v1 = App.Vector(L[1].X, L[1].Y, L[1].Z)
+					return v1 - v0
+			#
+			def vect_rotate(vect, angle):
+					newx = vect[0]*math.cos(angle) - vect[1]*math.sin(angle)
+					newy = vect[0]*math.sin(angle) + vect[1]*math.cos(angle)
+					return App.Vector(newx, newy, 0)
+			#
+			def koppel(P1, P0, Label):
+					a1=doc.getObject(doc.getObjectsByLabel(P1)[0].Name).Shape.Vertexes
+					v0A = (((xP13-xP12)*(a1[0].Y-yP13)+(yP12-yP13)*(a1[0].X-xP13))*math.cos(alpha13)+((yP13-yP12)*(a1[0].Y-yP13)+(xP13-xP12)*(a1[0].X-xP13))*math.sin(alpha13))/(((a1[0].X-xP12)*(a1[0].Y-yP13)+(yP12-a1[0].Y)*(a1[0].X-xP13))*math.cos(alpha13-alpha12)+((a1[0].X-xP12)*(a1[0].X-xP13)+(a1[0].Y-yP12)*(a1[0].Y-yP13))*math.sin(alpha13-alpha12))
+					xA0 = xP12+v0A*((a1[0].X-xP12)*math.cos(alpha12)+(yP12-a1[0].Y)*math.sin(alpha12))
+					yA0 = yP12+v0A*((a1[0].Y-yP12)*math.cos(alpha12)+(a1[0].X-xP12)*math.sin(alpha12))
+					A0 = Draft.make_point(xA0, yA0, 0, name=P0)
+					vA0 = App.Vector(xA0,yA0,0)
+					va1 = App.Vector(a1[0].X,a1[0].Y,0)
+					rA = Draft.make_line(vA0,va1)
+					rA.Label = Label+"_Link"
+					a123 = intersect(App.Vector(a1[0].X, a1[0].Y, 0), vect_rotate((App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0)), math.pi/2), App.Vector(xP13,yP13,0), App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0))
+					a123 = App.Vector(a123[0], a123[1], 0) + App.Vector(a123[0], a123[1], 0) - App.Vector(a1[0].X,a1[0].Y,0)
+					a2 = intersect(App.Vector(a123[0], a123[1], 0), vect_rotate((App.Vector(xP23,yP23,0) - App.Vector(xP12,yP12,0)), math.pi/2), App.Vector(xP23,yP23,0), App.Vector(xP23,yP23,0) - App.Vector(xP12,yP12,0))
+					a2 = App.Vector(a2[0], a2[1], 0) + App.Vector(a2[0], a2[1], 0) - App.Vector(a123[0],a123[1],0)
+					P_a2 = Draft.make_point(a2[0], a2[1], 0, name=Label+"2")
+					a3 = intersect(App.Vector(a123[0], a123[1], 0), vect_rotate((App.Vector(xP23,yP23,0) - App.Vector(xP13,yP13,0)), math.pi/2), App.Vector(xP23,yP23,0), App.Vector(xP23,yP23,0) - App.Vector(xP13,yP13,0))
+					a3 = App.Vector(a3[0], a3[1], 0) + App.Vector(a3[0], a3[1], 0) - App.Vector(a123[0],a123[1],0)
+					P_a3 = Draft.make_point(a3[0], a3[1], 0, name=Label+"3")
+					points = [App.Vector(a1[0].X, a1[0].Y, 0),
+					          App.Vector(a2[0], a2[1], 0),
+					          App.Vector(a3[0], a3[1], 0)]
+					#Poldreieck-Umkreis:
+					arc = Draft.make_arc_3points(points)
+					arc.Label = Label
+			#
+			def linear(e, Label):
+					v_LinBear = vect_from_line(doc.getObjectsByLabel(e)[0].Name)
+					angle_LinBear = v_LinBear.getAngle(vx)
+					ny = angle_btw_vect(xP12, yP12, xP23, yP23, 0, 0, 1, 0) - (angle_LinBear + math.pi/2)
+					ro = angle_btw_vect(xP13, yP13, xP23, yP23, 0, 0, 1, 0) - (angle_LinBear + math.pi/2)
+					X123 = intersect(App.Vector(xP12,yP12,0), vect_rotate((App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0)),ny), App.Vector(xP13,yP13,0), vect_rotate((App.Vector(xP12,yP12,0) - App.Vector(xP13,yP13,0)),ro))
+					#P_X123 = Draft.make_point(X123[0], X123[1], 0)
+					x1 = intersect(App.Vector(X123[0], X123[1], 0), vect_rotate((App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0)), math.pi/2), App.Vector(H[0], H[1], 0), vect_rotate(App.Vector(1, 0, 0), angle_LinBear))
+					x2 = intersect(App.Vector(X123[0], X123[1], 0), vect_rotate((App.Vector(xP23,yP23,0) - App.Vector(xP12,yP12,0)), math.pi/2), App.Vector(H[0], H[1], 0), vect_rotate(App.Vector(1, 0, 0), angle_LinBear))
+					x3 = intersect(App.Vector(X123[0], X123[1], 0), vect_rotate((App.Vector(xP13,yP13,0) - App.Vector(xP23,yP23,0)), math.pi/2), App.Vector(H[0], H[1], 0), vect_rotate(App.Vector(1, 0, 0), angle_LinBear))
+					P_x1 = Draft.make_point(x1[0], x1[1], 0, name=(Label+"x1"))
+					P_x2 = Draft.make_point(x2[0], x2[1], 0, name=(Label+"x2"))
+					P_x3 = Draft.make_point(x3[0], x3[1], 0, name=(Label+"x3"))
+					#
+					vx1 = App.Vector(x1[0],x1[1],0)
+					vx2 = App.Vector(x2[0],x2[1],0)
+					vx3 = App.Vector(x3[0],x3[1],0)
+					x1_x2 = Draft.make_line(vx1, vx2)
+					x1_x2.Label = Label+"x1_"+Label+"x2"
+					x2_x3 = Draft.make_line(vx2, vx3)
+					x2_x3.Label = Label+"x2_"+Label+"x3"
+			def schleif():
+					points = [App.Vector(xP12, yP12, 0),
+					          App.Vector(xP13, yP13, 0),
+					          App.Vector(xP23, yP23, 0)]
+					#Poldreieck-Umkreis:
+					arc = Draft.make_arc_3points(points)
+					arc.Label = "x"
+					#Mache Vollkreis:
+					arc.LastAngle = 360
+					#Mittelpunkt Poldreieck-Umkreis:
+					MP = arc.Placement.Base
+					x1 = intersect(App.Vector(H[0], H[1], 0), vect_rotate((App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0)), math.pi/2), App.Vector(xP13,yP13,0), App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0))
+					x1 = App.Vector(x1[0], x1[1], 0) + App.Vector(x1[0], x1[1], 0) - App.Vector(H[0],H[1],0)
+					P_x1 = Draft.make_point(x1[0], x1[1], 0, name="x1")
+					x2 = intersect(App.Vector(H[0], H[1], 0), vect_rotate((App.Vector(xP23,yP23,0) - App.Vector(xP12,yP12,0)), math.pi/2), App.Vector(xP23,yP23,0), App.Vector(xP23,yP23,0) - App.Vector(xP12,yP12,0))
+					x2 = App.Vector(x2[0], x2[1], 0) + App.Vector(x2[0], x2[1], 0) - App.Vector(H[0],H[1],0)
+					P_x2 = Draft.make_point(x2[0], x2[1], 0, name="x2")
+					x3 = intersect(App.Vector(H[0], H[1], 0), vect_rotate((App.Vector(xP23,yP23,0) - App.Vector(xP13,yP13,0)), math.pi/2), App.Vector(xP23,yP23,0), App.Vector(xP23,yP23,0) - App.Vector(xP13,yP13,0))
+					x3 = App.Vector(x3[0], x3[1], 0) + App.Vector(x3[0], x3[1], 0) - App.Vector(H[0],H[1],0)
+					P_x3 = Draft.make_point(x3[0], x3[1], 0, name="x3")
+			#
+			doc = App.ActiveDocument
+			e1=doc.getObject(doc.getObjectsByLabel("E1")[0].Name).Shape.Vertexes
+			e2=doc.getObject(doc.getObjectsByLabel("E2")[0].Name).Shape.Vertexes
+			e3=doc.getObject(doc.getObjectsByLabel("E3")[0].Name).Shape.Vertexes
+			vx = App.Vector(1,0,0)
+			v1e1 = FreeCAD.Vector(e1[1].X, e1[1].Y, e1[1].Z)
+			v0e1 = FreeCAD.Vector(e1[0].X, e1[0].Y, e1[0].Z)
+			ve1 = v1e1 - v0e1
+			angle1 = ve1.getAngle(vx)
+			v1e2 = FreeCAD.Vector(e2[1].X, e2[1].Y, e2[1].Z)
+			v0e2 = FreeCAD.Vector(e2[0].X, e2[0].Y, e2[0].Z)
+			ve2 = v1e2 - v0e2
+			angle2 = ve2.getAngle(vx)
+			v1e3 = FreeCAD.Vector(e3[1].X, e3[1].Y, e3[1].Z)
+			v0e3 = FreeCAD.Vector(e3[0].X, e3[0].Y, e3[0].Z)
+			ve3 = v1e3 - v0e3
+			angle3 = ve3.getAngle(vx)
+			phi12 = angle2 - angle1
+			phi13 = angle3 - angle1
+			phi23 = angle3 - angle2
+			alpha12 = phi12 / 2
+			alpha13 = phi13 / 2
+			alpha23 = phi23 / 2
+			xP12 = (e1[0].X + e2[0].X) / 2 + (e1[0].Y - e2[0].Y) / (2 * math.tan(alpha12))
+			yP12 = (e1[0].Y + e2[0].Y) / 2 + (e2[0].X - e1[0].X) / (2 * math.tan(alpha12))
+			xP13 = (e1[0].X + e3[0].X) / 2 + (e1[0].Y - e3[0].Y) / (2 * math.tan(alpha13))
+			yP13 = (e1[0].Y + e3[0].Y) / 2 + (e3[0].X - e1[0].X) / (2 * math.tan(alpha13))
+			xP23 = (e2[0].X + e3[0].X) / 2 + (e2[0].Y - e3[0].Y) / (2 * math.tan(alpha23))
+			yP23 = (e2[0].Y + e3[0].Y) / 2 + (e3[0].X - e2[0].X) / (2 * math.tan(alpha23))
+			#Polpunkte
+			#P12 = Draft.make_point(xP12, yP12, 0)
+			#P13 = Draft.make_point(xP13, yP13, 0)
+			#P23 = Draft.make_point(xP23, yP23, 0)
+			#Höhenschnittpunkt
+			H = intersect(App.Vector(xP23,yP23,0),vect_rotate((App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0)),math.pi/2),App.Vector(xP13,yP13,0),vect_rotate((App.Vector(xP23,yP23,0) - App.Vector(xP12,yP12,0)),math.pi/2))
+			if Gtyp == 1 or Gtyp == 2 or Gtyp == 4:#A
+				koppel("A1", "A0", "A")
+			if Gtyp == 1:#B
+				koppel("B1", "B0", "B")
+				#Gelenkkoppel
+				A1 = doc.getObject(doc.getObjectsByLabel("A1")[0].Name).Shape.Vertexes
+				vA1 = App.Vector(A1[0].X,A1[0].Y,0)
+				B1 = doc.getObject(doc.getObjectsByLabel("B1")[0].Name).Shape.Vertexes
+				vB1 = App.Vector(B1[0].X,B1[0].Y,0)
+				A1B1 = Draft.make_line(vA1, vB1)
+				A1B1.Label = "Link_A1_B1"
+				FreeCAD.ActiveDocument.recompute()
+				A2 = doc.getObject(doc.getObjectsByLabel("A2")[0].Name).Shape.Vertexes
+				vA2 = App.Vector(A2[0].X,A2[0].Y,0)
+				B2 = doc.getObject(doc.getObjectsByLabel("B2")[0].Name).Shape.Vertexes
+				vB2 = App.Vector(B2[0].X,B2[0].Y,0)
+				A2B2 = Draft.make_line(vA2, vB2)
+				A2B2.Label = "Link_A2_B2"
+				A3 = doc.getObject(doc.getObjectsByLabel("A3")[0].Name).Shape.Vertexes
+				vA3 = App.Vector(A3[0].X,A3[0].Y,0)
+				B3 = doc.getObject(doc.getObjectsByLabel("B3")[0].Name).Shape.Vertexes
+				vB3 = App.Vector(B3[0].X,B3[0].Y,0)
+				A3B3 = Draft.make_line(vA3, vB3)
+				A3B3.Label = "Link_A3_B3"
+			if Gtyp == 2 or Gtyp == 3 or Gtyp == 5:
+				linear("a1","a")
+			if Gtyp == 3:
+				linear("b1","b")
+			if Gtyp == 4 or Gtyp == 5:
+				schleif()
+			FreeCAD.ActiveDocument.recompute()
+
+def options():
+			class MyButtons(QtGui.QDialog):
+				""""""
+				def __init__(self):
+					super(MyButtons, self).__init__()
+					self.initUI()
+				def initUI(self):
+					option1Button = QtGui.QPushButton("Viergelenk")
+					option1Button.clicked.connect(self.onOption1)
+					option2Button = QtGui.QPushButton("Schubkurbel")
+					option2Button.clicked.connect(self.onOption2)
+					option3Button = QtGui.QPushButton("Schub-Schub")
+					option3Button.clicked.connect(self.onOption3)
+					option4Button = QtGui.QPushButton("Kurbelschleife")
+					option4Button.clicked.connect(self.onOption4)
+					option5Button = QtGui.QPushButton("Schubschleife")
+					option5Button.clicked.connect(self.onOption5)
+					#
+					buttonBox = QtGui.QDialogButtonBox()
+					buttonBox = QtGui.QDialogButtonBox(QtCore.Qt.Horizontal)
+					buttonBox.addButton(option1Button, QtGui.QDialogButtonBox.ActionRole)
+					buttonBox.addButton(option2Button, QtGui.QDialogButtonBox.ActionRole)
+					buttonBox.addButton(option3Button, QtGui.QDialogButtonBox.ActionRole)
+					buttonBox.addButton(option4Button, QtGui.QDialogButtonBox.ActionRole)
+					buttonBox.addButton(option5Button, QtGui.QDialogButtonBox.ActionRole)
+					#
+					mainLayout = QtGui.QVBoxLayout()
+					mainLayout.addWidget(buttonBox)
+					self.setLayout(mainLayout)
+					# define window		xLoc,yLoc,xDim,yDim
+					self.setGeometry(	250, 250, 0, 50)
+					self.setWindowTitle("Koppelgetriebe nach Burmester, Vorgabe von 3-Ebenenlagen")
+					self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+				def onOption1(self):
+					self.retStatus = 1
+					self.close()
+				def onOption2(self):
+					self.retStatus = 2
+					self.close()
+				def onOption3(self):
+					self.retStatus = 3
+					self.close()
+				def onOption4(self):
+					self.retStatus = 4
+					self.close()
+				def onOption5(self):
+					self.retStatus = 5
+					self.close()
+			
+			def routine1():
+				EL(1)
+			def routine2():
+				EL(2)
+			def routine3():
+				EL(3)
+			def routine4():
+				EL(4)
+			def routine5():
+				EL(5)
+					
+			form = MyButtons()
+			form.exec_()
+			if form.retStatus==1:
+				routine1()
+			elif form.retStatus==2:
+				routine2()
+			elif form.retStatus==3:
+				routine3()
+			elif form.retStatus==4:
+				routine4()
+			elif form.retStatus==5:
+				routine5()
+
+reply = QtGui.QMessageBox.question(None, "", "Koppelgetriebe nach Burmester mit Vorgabe von 3-Ebenenlagen.\n\nDie 3 Ebenenlagen sind die Linien E1, E2 und E3. Die Koppelpunkte sind die Punkte A1 und B1. Die Schubrichtungen sind die Linien a1 und b1.\nDer in der Draft-Workbench, mit korrekter Benennung einzugebende Mindesteingabeumfang, ergibt sich aus der, im nächsten Fenster gewählten Getriebeart.\nBei der Schleife ist der Drehpunkt dann auf dem, sich ergebenden Kreis x frei wählbar.\n\nIst alles richtig vorhanden?",
+         QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No)
+if reply == QtGui.QMessageBox.Yes:
+         	# this is where the code relevant to a 'Yes' answer goes
+			options()#Funktion mit Buttons
+         	#pass
+if reply == QtGui.QMessageBox.No:
+         	# this is where the code relevant to a 'No' answer goes
+         	pass
+
