@@ -5,6 +5,7 @@ def EL(Gtyp):
 			import math
 			import FreeCAD as App
 			import numpy as np
+			import FreeCADGui
 			#
 			# https://stackoverflow.com/questions/74265725/find-intersection-of-two-vectors-with-numpy
 			def intersect(A, a, B, b):
@@ -49,8 +50,6 @@ def EL(Gtyp):
 					A0 = Draft.make_point(xA0, yA0, 0, name=P0)
 					vA0 = App.Vector(xA0,yA0,0)
 					va1 = App.Vector(a1[0].X,a1[0].Y,0)
-					rA = Draft.make_line(vA0,va1)
-					rA.Label = Label+"_Link"
 					a123 = intersect(App.Vector(a1[0].X, a1[0].Y, 0), vect_rotate((App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0)), math.pi/2), App.Vector(xP13,yP13,0), App.Vector(xP13,yP13,0) - App.Vector(xP12,yP12,0))
 					a123 = App.Vector(a123[0], a123[1], 0) + App.Vector(a123[0], a123[1], 0) - App.Vector(a1[0].X,a1[0].Y,0)
 					a2 = intersect(App.Vector(a123[0], a123[1], 0), vect_rotate((App.Vector(xP23,yP23,0) - App.Vector(xP12,yP12,0)), math.pi/2), App.Vector(xP23,yP23,0), App.Vector(xP23,yP23,0) - App.Vector(xP12,yP12,0))
@@ -65,6 +64,17 @@ def EL(Gtyp):
 					#Poldreieck-Umkreis:
 					arc = Draft.make_arc_3points(points)
 					arc.Label = Label
+					arc.ViewObject.LineColor = (1.0,0.0,0.0)
+					#
+					A0_A1 = Draft.make_line(vA0,va1)
+					A0_A1.Label = Label+"0_"+Label+"1"
+					A0_A1.ViewObject.LineColor = (1.0,0.0,0.0)
+					A0_A2 = Draft.make_line(vA0,a2)
+					A0_A2.Label = Label+"0_"+Label+"2"
+					A0_A2.ViewObject.LineColor = (1.0,0.0,0.0)
+					A0_A3 = Draft.make_line(vA0,a3)
+					A0_A3.Label = Label+"0_"+Label+"3"
+					A0_A3.ViewObject.LineColor = (1.0,0.0,0.0)
 			#
 			def linear(e, Label):
 					v_LinBear = vect_from_line(doc.getObjectsByLabel(e)[0].Name)
@@ -85,8 +95,20 @@ def EL(Gtyp):
 					vx3 = App.Vector(x3[0],x3[1],0)
 					x1_x2 = Draft.make_line(vx1, vx2)
 					x1_x2.Label = Label+"x1_"+Label+"x2"
+					x1_x2.ViewObject.LineColor = (0.0,1.0,0.0)
 					x2_x3 = Draft.make_line(vx2, vx3)
 					x2_x3.Label = Label+"x2_"+Label+"x3"
+					x2_x3.ViewObject.LineColor = (0.0,1.0,0.0)
+					# Verbindung Ebene zum Schubgelenk
+					e1_x1 = Draft.make_line(v0e1, vx1)
+					e1_x1.Label = "E1_"+Label+"x1"
+					e1_x1.ViewObject.LineColor = (0.0,1.0,0.0)
+					e2_x2 = Draft.make_line(v0e2, vx2)
+					e2_x2.Label = "E2_"+Label+"x2"
+					e2_x2.ViewObject.LineColor = (0.0,1.0,0.0)
+					e3_x3 = Draft.make_line(v0e3, vx3)
+					e3_x3.Label = "E3_"+Label+"x3"
+					e3_x3.ViewObject.LineColor = (0.0,1.0,0.0)
 			def schleif():
 					points = [App.Vector(xP12, yP12, 0),
 					          App.Vector(xP13, yP13, 0),
@@ -94,6 +116,7 @@ def EL(Gtyp):
 					#Poldreieck-Umkreis:
 					arc = Draft.make_arc_3points(points)
 					arc.Label = "x"
+					arc.ViewObject.LineColor = (0.0,0.0,1.0)
 					#Mache Vollkreis:
 					arc.LastAngle = 360
 					#Mittelpunkt Poldreieck-Umkreis:
@@ -107,6 +130,16 @@ def EL(Gtyp):
 					x3 = intersect(App.Vector(H[0], H[1], 0), vect_rotate((App.Vector(xP23,yP23,0) - App.Vector(xP13,yP13,0)), math.pi/2), App.Vector(xP23,yP23,0), App.Vector(xP23,yP23,0) - App.Vector(xP13,yP13,0))
 					x3 = App.Vector(x3[0], x3[1], 0) + App.Vector(x3[0], x3[1], 0) - App.Vector(H[0],H[1],0)
 					P_x3 = Draft.make_point(x3[0], x3[1], 0, name="x3")
+					# Verbindung Ebene zum Schubgelenk
+					e1_x1 = Draft.make_line(v0e1, x1)
+					e1_x1.Label = "E1_x1"
+					e1_x1.ViewObject.LineColor = (0.0,0.0,1.0)
+					e2_x2 = Draft.make_line(v0e2, x2)
+					e2_x2.Label = "E2_x2"
+					e2_x2.ViewObject.LineColor = (0.0,0.0,1.0)
+					e3_x3 = Draft.make_line(v0e3, x3)
+					e3_x3.Label = "E3_x3"
+					e3_x3.ViewObject.LineColor = (0.0,0.0,1.0)
 			#
 			doc = App.ActiveDocument
 			e1=doc.getObject(doc.getObjectsByLabel("E1")[0].Name).Shape.Vertexes
@@ -174,6 +207,7 @@ def EL(Gtyp):
 			if Gtyp == 4 or Gtyp == 5:
 				schleif()
 			FreeCAD.ActiveDocument.recompute()
+			FreeCADGui.ActiveDocument.ActiveView.fitAll()
 
 def options():
 			class MyButtons(QtGui.QDialog):
